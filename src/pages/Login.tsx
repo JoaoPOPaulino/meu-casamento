@@ -7,53 +7,74 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [erro, setErro] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault(); // Evita que a página recarregue ao enviar o formulário
+    e.preventDefault();
     setErro('');
+    setLoading(true);
 
     try {
-      // Aqui a mágica acontece: tentamos logar no Firebase
       await signInWithEmailAndPassword(auth, email, password);
-      
-      // Se deu certo, redirecionamos para o painel de controle
       navigate('/admin');
     } catch (error) {
-      setErro('E-mail ou senha incorretos. Tente novamente.');
+      setErro('E-mail ou senha incorretos. Verifique e tente novamente.');
       console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '50px' }}>
-      <h2>Acesso Restrito - Noivos 💍</h2>
-      
-      <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '300px' }}>
-        <input 
-          type="email" 
-          placeholder="Digite seu e-mail" 
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={{ padding: '8px' }}
-        />
+    <div className="min-h-screen bg-rose-50 flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm border border-pink-100">
         
-        <input 
-          type="password" 
-          placeholder="Digite sua senha" 
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          style={{ padding: '8px' }}
-        />
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-rose-600">Área dos Noivos 💍</h2>
+          <p className="text-sm text-pink-400 mt-2">Acesso restrito à organização</p>
+        </div>
         
-        <button type="submit" style={{ padding: '10px', cursor: 'pointer' }}>
-          Entrar no Painel
-        </button>
-      </form>
+        <form onSubmit={handleLogin} className="flex flex-col gap-5">
+          <div>
+            <label className="block text-sm font-medium text-rose-900 mb-1">E-mail</label>
+            <input 
+              type="email" 
+              placeholder="seu@email.com" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full p-3 border border-pink-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition bg-rose-50/30"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-rose-900 mb-1">Senha</label>
+            <input 
+              type="password" 
+              placeholder="••••••••" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full p-3 border border-pink-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition bg-rose-50/30"
+            />
+          </div>
+          
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="mt-2 w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-lg shadow-md transition disabled:opacity-70"
+          >
+            {loading ? 'Acessando...' : 'Entrar no Painel'}
+          </button>
+        </form>
 
-      {erro && <p style={{ color: 'red', marginTop: '10px' }}>{erro}</p>}
+        {erro && (
+          <div className="mt-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 text-center">
+            {erro}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

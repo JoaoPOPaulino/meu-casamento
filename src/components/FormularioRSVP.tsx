@@ -3,7 +3,6 @@ import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 export function FormularioRSVP() {
-  // Estados para guardar o que o usuário digita
   const [nome, setNome] = useState('');
   const [confirmado, setConfirmado] = useState(true);
   const [acompanhantes, setAcompanhantes] = useState(0);
@@ -15,10 +14,7 @@ export function FormularioRSVP() {
     setLoading(true);
 
     try {
-      // Apontamos para a coleção 'convidados' no banco de dados
       const convidadosRef = collection(db, 'convidados');
-      
-      // Enviamos o documento (JSON) para o Firestore
       await addDoc(convidadosRef, {
         nomeCompleto: nome,
         confirmado: confirmado,
@@ -27,7 +23,7 @@ export function FormularioRSVP() {
       });
 
       setSucesso(true);
-      setNome(''); // Limpa o formulário
+      setNome('');
       setAcompanhantes(0);
     } catch (error) {
       console.error("Erro ao salvar convidado: ", error);
@@ -38,52 +34,61 @@ export function FormularioRSVP() {
   };
 
   if (sucesso) {
-    return <div style={{ color: 'green', marginTop: '20px' }}>Obrigado! Sua resposta foi registrada com sucesso. 🎉</div>;
+    return (
+      <div className="bg-green-50 text-green-700 p-6 rounded-xl border border-green-200 text-center shadow-sm">
+        <h3 className="text-xl font-semibold mb-2">Obrigado! 🎉</h3>
+        <p>Sua resposta foi registrada com sucesso.</p>
+      </div>
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '400px', margin: '0 auto' }}>
-      <h3>Confirme sua Presença</h3>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5 w-full">
+      <h3 className="text-2xl font-semibold text-rose-600 mb-2 text-center">Confirme sua Presença</h3>
       
       <div>
-        <label>Nome e Sobrenome:</label><br/>
+        <label className="block text-sm font-medium text-rose-900 mb-1">Nome e Sobrenome</label>
         <input 
           type="text" 
           value={nome} 
           onChange={(e) => setNome(e.target.value)} 
           required 
-          style={{ width: '100%', padding: '8px' }}
+          placeholder="Digite seu nome completo"
+          className="w-full p-3 border border-pink-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition bg-rose-50/30"
         />
       </div>
 
       <div>
-        <label>Você vai comparecer?</label><br/>
+        <label className="block text-sm font-medium text-rose-900 mb-1">Você vai comparecer?</label>
         <select 
           value={confirmado ? 'sim' : 'nao'} 
           onChange={(e) => setConfirmado(e.target.value === 'sim')}
-          style={{ width: '100%', padding: '8px' }}
+          className="w-full p-3 border border-pink-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition bg-rose-50/30"
         >
-          <option value="sim">Sim, estarei lá!</option>
+          <option value="sim">Sim, estarei lá! ✨</option>
           <option value="nao">Não poderei ir :(</option>
         </select>
       </div>
 
-      {/* Só mostra a opção de acompanhantes se a pessoa confirmou que vai */}
       {confirmado && (
-        <div>
-          <label>Quantos acompanhantes extras? (Cônjuge/Filhos)</label><br/>
+        <div className="animate-fade-in">
+          <label className="block text-sm font-medium text-rose-900 mb-1">Quantos acompanhantes extras? (Cônjuge/Filhos)</label>
           <input 
             type="number" 
             min="0" 
             max="5"
             value={acompanhantes} 
             onChange={(e) => setAcompanhantes(Number(e.target.value))} 
-            style={{ width: '100%', padding: '8px' }}
+            className="w-full p-3 border border-pink-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition bg-rose-50/30"
           />
         </div>
       )}
 
-      <button type="submit" disabled={loading} style={{ padding: '10px', cursor: 'pointer', backgroundColor: '#4CAF50', color: 'white', border: 'none' }}>
+      <button 
+        type="submit" 
+        disabled={loading} 
+        className="mt-2 w-full bg-rose-500 hover:bg-rose-600 text-white font-medium py-3 rounded-lg shadow-md transition disabled:opacity-70"
+      >
         {loading ? 'Enviando...' : 'Enviar Resposta'}
       </button>
     </form>
