@@ -3,38 +3,62 @@ import { collection, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { NovaDespesa } from '../components/NovaDespesa';
 import { GeradorConvites } from '../components/GeradorConvite';
+import { AbaPresentes } from '../components/AbaPresentes';
+import { AbaConvidados } from '../components/AbaConvidados';
+import { AbaFinanceiro } from '../components/AbaFinanceiro';
+import { AbaGraficos } from '../components/AbaGrafico';
 
-interface Convidado {
+export interface Convidado {
   id: string;
   nomeCompleto: string;
   confirmado: boolean;
   quantidadeAcompanhantes: number;
+  mesa?: number;
+  restricaoAlimentar?: string;
 }
 
-interface Despesa {
+export interface Despesa {
   id: string;
   descricao: string;
   categoria: string;
   valorTotal: number;
   valorJaPago: number;
-  statusPagamento: string;
+  statusPagamento: 'Pago' | 'Pendente' | 'Parcial';
+}
+
+export interface Presente {
+  id: string;
+  nome: string;
+  quem: string;
+  status: 'Recebido' | 'Na lista';
+  valor: number;
 }
 
 export function Dashboard() {
   const [convidados, setConvidados] = useState<Convidado[]>([]);
   const [despesas, setDespesas] = useState<Despesa[]>([]);
+  const [presentes, setPresentes] = useState<Presente[]>([]);
   const [loading, setLoading] = useState(true);
-  const [abaSelecionada, setAbaSelecionada] = useState<'financeiro' | 'convidados' | 'convites'>('financeiro');
+  const [abaSelecionada, setAbaSelecionada] = useState<
+    'financeiro' | 'graficos' | 'convidados' | 'presentes' | 'convites'
+  >('financeiro');
 
   useEffect(() => {
-    const unsubConvidados = onSnapshot(collection(db, 'convidados'), (snapshot) => {
-      setConvidados(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Convidado[]);
+    const unsubConvidados = onSnapshot(collection(db, 'convidados'), (snap) => {
+      setConvidados(snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Convidado[]);
     });
-    const unsubDespesas = onSnapshot(collection(db, 'despesas'), (snapshot) => {
-      setDespesas(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Despesa[]);
+    const unsubDespesas = onSnapshot(collection(db, 'despesas'), (snap) => {
+      setDespesas(snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Despesa[]);
       setLoading(false);
     });
-    return () => { unsubConvidados(); unsubDespesas(); };
+    const unsubPresentes = onSnapshot(collection(db, 'presentes'), (snap) => {
+      setPresentes(snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Presente[]);
+    });
+    return () => {
+      unsubConvidados();
+      unsubDespesas();
+      unsubPresentes();
+    };
   }, []);
 
   const excluirDespesa = async (id: string, descricao: string) => {
@@ -47,24 +71,61 @@ export function Dashboard() {
   };
 
   const totalConfirmados = convidados
-    .filter(c => c.confirmado)
+    .filter((c) => c.confirmado)
     .reduce((total, c) => total + 1 + c.quantidadeAcompanhantes, 0);
 
   const custoTotal = despesas.reduce((acc, d) => acc + d.valorTotal, 0);
   const totalJaPago = despesas.reduce((acc, d) => acc + d.valorJaPago, 0);
   const saldoDevedor = custoTotal - totalJaPago;
+  const percentualPago = custoTotal > 0 ? Math.round((totalJaPago / custoTotal) * 100) : 0;
 
   const fmt = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
   const abas = [
     { key: 'financeiro' as const, label: 'Financeiro', emoji: '💰' },
+    { key: 'graficos' as const, label: 'Gráficos', emoji: '📊' },
     { key: 'convidados' as const, label: 'Convidados', emoji: '👥' },
+    { key: 'presentes' as const, label: 'Presentes', emoji: '🎁' },
     { key: 'convites' as const, label: 'Convites', emoji: '💌' },
   ];
 
+  const summaryCards = [
+    {
+      label: 'Custo Total',
+      value: fmt(custoTotal),
+      sub: `${despesas.length} despesas`,
+      color: 'rose',
+      emoji: '📋',
+    },
+    {
+      label: 'Já Pago',
+      value: fmt(totalJaPago),
+      sub: `${percentualPago}% do total`,
+      color: 'emerald',
+      emoji: '✅',
+    },
+    {
+      label: 'Falta Pagar',
+      value: fmt(saldoDevedor),
+      sub: `${100 - percentualPago}% restante`,
+      color: 'orange',
+      emoji: '⏳',
+    },
+    {
+      label: 'Confirmados',
+      value: loading ? '...' : String(totalConfirmados),
+      sub: `de ${convidados.length} convidados`,
+      color: 'purple',
+      emoji: '🎉',
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-rose-50 p-4 md:p-8" style={{ fontFamily: "'Lato', sans-serif" }}>
+    <div
+      className="min-h-screen bg-rose-50 p-4 md:p-8"
+      style={{ fontFamily: "'Lato', sans-serif" }}
+    >
       <div className="max-w-6xl mx-auto space-y-6">
 
         {/* Cabeçalho */}
@@ -76,38 +137,55 @@ export function Dashboard() {
             >
               Painel dos Noivos 💍
             </h1>
-            <p className="text-xs text-pink-400 mt-0.5 uppercase tracking-widest">Área administrativa</p>
+            <p className="text-xs text-pink-400 mt-0.5 uppercase tracking-widest">
+              Área administrativa
+            </p>
           </div>
+          {/* Contagem regressiva simples */}
+          <CountdownBadge weddingDate="2025-12-14" />
         </div>
 
         {/* Cards de resumo */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: 'Custo Total', value: fmt(custoTotal), color: 'rose', emoji: '📋' },
-            { label: 'Já Pago', value: fmt(totalJaPago), color: 'emerald', emoji: '✅' },
-            { label: 'Falta Pagar', value: fmt(saldoDevedor), color: 'orange', emoji: '⏳' },
-            { label: 'Confirmados', value: loading ? '...' : String(totalConfirmados), color: 'purple', emoji: '🎉' },
-          ].map(({ label, value, color, emoji }) => (
+          {summaryCards.map(({ label, value, sub, color, emoji }) => (
             <div
               key={label}
-              className={`bg-white p-4 rounded-2xl border border-pink-100 border-l-4 border-l-${color}-400 shadow-sm`}
+              className={`bg-white p-4 rounded-2xl border border-pink-100 shadow-sm overflow-hidden relative`}
             >
-              <p className={`text-xs text-${color}-500 uppercase font-bold tracking-wide flex items-center gap-1`}>
+              <div
+                className={`absolute top-0 left-0 right-0 h-1 bg-${color}-400 rounded-t-2xl`}
+              />
+              <p className={`text-xs text-${color}-500 uppercase font-bold tracking-wide flex items-center gap-1 mt-1`}>
                 <span>{emoji}</span> {label}
               </p>
               <p className={`text-2xl font-bold text-${color}-700 mt-1`}>{value}</p>
+              <p className={`text-xs text-${color}-400 mt-0.5`}>{sub}</p>
             </div>
           ))}
         </div>
 
-        {/* Abas de navegação */}
+        {/* Barra de progresso global */}
+        <div className="bg-white p-4 rounded-2xl border border-pink-100 shadow-sm">
+          <div className="flex justify-between text-xs text-pink-500 font-medium mb-1.5">
+            <span>Progresso de pagamento</span>
+            <span>{percentualPago}%</span>
+          </div>
+          <div className="w-full bg-rose-100 rounded-full h-2">
+            <div
+              className="bg-rose-400 h-2 rounded-full transition-all duration-500"
+              style={{ width: `${percentualPago}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Abas */}
         <div className="bg-white rounded-2xl border border-pink-100 shadow-sm overflow-hidden">
-          <div className="flex border-b border-pink-100">
+          <div className="flex border-b border-pink-100 overflow-x-auto">
             {abas.map(({ key, label, emoji }) => (
               <button
                 key={key}
                 onClick={() => setAbaSelecionada(key)}
-                className={`flex-1 py-3.5 text-sm font-semibold transition flex items-center justify-center gap-2 ${
+                className={`flex-1 py-3.5 text-sm font-semibold transition flex items-center justify-center gap-2 whitespace-nowrap px-3 ${
                   abaSelecionada === key
                     ? 'text-rose-700 border-b-2 border-rose-500 bg-rose-50/50'
                     : 'text-pink-400 hover:text-rose-600 hover:bg-rose-50/30'
@@ -120,105 +198,40 @@ export function Dashboard() {
           </div>
 
           <div className="p-6">
-            {/* ── ABA: FINANCEIRO ─────────────────────────── */}
             {abaSelecionada === 'financeiro' && (
-              <div className="space-y-6">
-                <NovaDespesa />
-                <div className="rounded-xl border border-pink-100 overflow-hidden overflow-x-auto">
-                  <table className="w-full text-left text-sm min-w-[400px]">
-                    <thead className="bg-rose-50/50 border-b border-pink-100">
-                      <tr>
-                        {['Descrição', 'Total', 'Status', 'Ações'].map(h => (
-                          <th key={h} className="p-4 font-semibold text-rose-800">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-pink-50">
-                      {despesas.map((d) => (
-                        <tr key={d.id} className="hover:bg-rose-50/30 transition">
-                          <td className="p-4">
-                            <span className="block font-medium text-rose-900">{d.descricao}</span>
-                            <span className="text-xs text-pink-400">{d.categoria}</span>
-                          </td>
-                          <td className="p-4 font-medium text-rose-700">{fmt(d.valorTotal)}</td>
-                          <td className="p-4">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              d.statusPagamento === 'Pago' ? 'bg-emerald-100 text-emerald-700' :
-                              d.statusPagamento === 'Pendente' ? 'bg-orange-100 text-orange-700' :
-                              'bg-blue-100 text-blue-700'
-                            }`}>
-                              {d.statusPagamento}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <button
-                              onClick={() => excluirDespesa(d.id, d.descricao)}
-                              className="text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded bg-red-50 hover:bg-red-100 transition"
-                            >
-                              Excluir
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {despesas.length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="p-8 text-center text-pink-400">
-                            Nenhuma despesa cadastrada ainda.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <AbaFinanceiro despesas={despesas} onExcluir={excluirDespesa} />
             )}
-
-            {/* ── ABA: CONVIDADOS ──────────────────────────── */}
+            {abaSelecionada === 'graficos' && (
+              <AbaGraficos
+                despesas={despesas}
+                custoTotal={custoTotal}
+                totalJaPago={totalJaPago}
+                percentualPago={percentualPago}
+              />
+            )}
             {abaSelecionada === 'convidados' && (
-              <div className="rounded-xl border border-pink-100 overflow-hidden overflow-x-auto">
-                <table className="w-full text-left text-sm min-w-[300px]">
-                  <thead className="bg-rose-50/50 border-b border-pink-100">
-                    <tr>
-                      <th className="p-4 font-semibold text-rose-800">Nome</th>
-                      <th className="p-4 font-semibold text-rose-800">Acomp.</th>
-                      <th className="p-4 font-semibold text-rose-800">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-pink-50">
-                    {convidados.map((c) => (
-                      <tr key={c.id} className="hover:bg-rose-50/30 transition">
-                        <td className="p-4 text-rose-900 font-medium">{c.nomeCompleto}</td>
-                        <td className="p-4 text-rose-700 text-center">
-                          {c.confirmado ? c.quantidadeAcompanhantes : '—'}
-                        </td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            c.confirmado ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'
-                          }`}>
-                            {c.confirmado ? 'Confirmado' : 'Não vai'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                    {convidados.length === 0 && (
-                      <tr>
-                        <td colSpan={3} className="p-8 text-center text-pink-400">
-                          Nenhum convidado respondeu ainda.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <AbaConvidados convidados={convidados} />
             )}
-
-            {/* ── ABA: CONVITES ────────────────────────────── */}
-            {abaSelecionada === 'convites' && (
-              <GeradorConvites />
+            {abaSelecionada === 'presentes' && (
+              <AbaPresentes presentes={presentes} />
             )}
+            {abaSelecionada === 'convites' && <GeradorConvites />}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function CountdownBadge({ weddingDate }: { weddingDate: string }) {
+  const days = Math.ceil(
+    (new Date(weddingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  );
+  if (days < 0) return null;
+  return (
+    <div className="text-center bg-rose-50 border border-pink-100 rounded-xl px-4 py-2">
+      <p className="text-2xl font-bold text-rose-700">{days}</p>
+      <p className="text-xs text-pink-400 uppercase tracking-wide">dias para o sim</p>
     </div>
   );
 }

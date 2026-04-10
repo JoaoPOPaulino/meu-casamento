@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 interface ConviteInfo {
   nomeConvidado: string;
@@ -13,9 +13,11 @@ export function PaginaConvite() {
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { codigo } = useParams();
+  const codigoFormatado = codigo?.toUpperCase();
 
-  // Extrai o código da URL: /convite/A3BK9ZR2
-  const codigo = window.location.pathname.split('/convite/')[1]?.toUpperCase();
+    // Extrai o código da URL: /convite/A3BK9ZR2
+    where('codigo', '==', codigoFormatado)
 
   useEffect(() => {
     if (!codigo) {
