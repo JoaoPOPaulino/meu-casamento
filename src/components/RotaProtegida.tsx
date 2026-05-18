@@ -1,17 +1,33 @@
-import { Navigate } from 'react-router-dom';
-import { auth } from '../config/firebase';
-import type { JSX } from 'react';
+import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../config/firebase";
+import type { JSX } from "react";
 
-// O "children" é a tela que estamos tentando proteger (ex: o Dashboard)
 export function RotaProtegida({ children }: { children: JSX.Element }) {
-  // Verificamos se o Firebase tem uma sessão ativa salva no navegador
-  const usuarioLogado = auth.currentUser;
+  const [usuario, setUsuario] = useState<null | false | object>(null);
+  // null = ainda carregando, false = não logado, object = logado
 
-  if (!usuarioLogado) {
-    // Se não tiver ninguém logado, redireciona para a tela de login
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setUsuario(user ?? false);
+    });
+    return unsub;
+  }, []);
+
+  // Ainda verificando sessão — não redireciona ainda
+  if (usuario === null) {
+    return (
+      <div className="min-h-screen bg-rose-50 flex items-center justify-center">
+        <p className="text-rose-400 text-sm">Verificando acesso...</p>
+      </div>
+    );
+  }
+
+  // Sessão confirmada como inativa
+  if (usuario === false) {
     return <Navigate to="/login" replace />;
   }
 
-  // Se estiver tudo certo, renderiza a tela normalmente
   return children;
 }
